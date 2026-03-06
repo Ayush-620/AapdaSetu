@@ -72,8 +72,14 @@ app.post('/api/ai-dispatch', async (req, res) => {
 // 4. SECURE PROXY ROUTE: Audio Transcription (ASSEMBLY AI)
 app.post('/api/ai-transcribe', upload.single('file'), async (req, res) => {
     try {
-        console.log("🎙️ Sending audio to AssemblyAI...");
+        // SAFETY CHECK: Did the frontend actually send a file?
+        if (!req.file) {
+            return res.status(400).json({ error: "No audio file received from the frontend." });
+        }
 
+        console.log("🎙️ Uploading RAM buffer directly to AssemblyAI...");
+
+        // Pass the memory buffer directly to the API (No temporary disk files!)
         const transcript = await aai.transcripts.transcribe({
             audio: req.file.buffer,
             language_detection: true 
