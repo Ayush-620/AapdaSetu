@@ -90,7 +90,8 @@ app.post('/api/ai-transcribe', upload.single('file'), async (req, res) => {
         console.log("✅ Step 2: Uploaded. Transcribing...");
         const transcript = await aai.transcripts.transcribe({
             audio: uploadUrl, 
-            language_detection: true 
+            language_detection: true,
+            speech_models: ["universal-3-pro", "universal-2"]
         });
 
         if (transcript.status === 'error') {
