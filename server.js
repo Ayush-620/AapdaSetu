@@ -8,14 +8,14 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Setup Multer
+// Setup Multer to keep the incoming audio file in memory
 const upload = multer(); 
 
-// Safely initialize AssemblyAI (Won't crash if key is missing on boot)
+// Safely initialize AssemblyAI (Won't crash if key is temporarily missing on boot)
 const aaiKey = process.env.ASSEMBLYAI_API_KEY;
 const aai = aaiKey ? new AssemblyAI({ apiKey: aaiKey }) : null;
 
-// 1. Serve HTML files
+// 1. Serve HTML files directly from the CURRENT folder
 app.use(express.static(__dirname));
 
 // 2. SECURE PROXY ROUTE: Chatbot (GEMINI 1.5 FLASH)
@@ -91,7 +91,7 @@ app.post('/api/ai-transcribe', upload.single('file'), async (req, res) => {
         const transcript = await aai.transcripts.transcribe({
             audio: uploadUrl, 
             language_detection: true,
-            speech_models: ["universal-3-pro", "universal-2"]
+            speech_models: ["universal-3-pro", "universal-2"] // 👈 THE FIX!
         });
 
         if (transcript.status === 'error') {
