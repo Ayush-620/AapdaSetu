@@ -24,7 +24,7 @@ app.post('/api/ai-chat', async (req, res) => {
         if (!process.env.GEMINI_API_KEY) throw new Error("CRITICAL: GEMINI_API_KEY is missing on Render!");
         
         console.log("🤖 Forwarding chat to Google Gemini...");
-        const payload = { ...req.body, model: 'gemini-1.5-flash' };
+        const payload = { ...req.body, model: 'gemini-2.5-flash' };
 
         const response = await fetch('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', {
             method: 'POST',
@@ -54,7 +54,7 @@ app.post('/api/ai-dispatch', async (req, res) => {
         if (!process.env.GEMINI_API_KEY) throw new Error("CRITICAL: GEMINI_API_KEY is missing on Render!");
         
         console.log("🚑 Forwarding dispatch to Google Gemini...");
-        const payload = { ...req.body, model: 'gemini-1.5-flash' };
+        const payload = { ...req.body, model: 'gemini-2.5-flash' };
 
         const response = await fetch('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', {
             method: 'POST',
