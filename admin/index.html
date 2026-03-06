@@ -138,7 +138,10 @@
         console.log("Map Initializing...");
         const center = { lat: 20.2961, lng: 85.8245 };
         map = new google.maps.Map(document.getElementById("googleMap"), {
-            zoom: 7, center: center, mapTypeId: 'terrain',
+            zoom: 7, 
+            center: center, 
+            mapTypeId: 'terrain',
+            mapId: "DEMO_MAP_ID", // ✅ REQUIRED FOR ADVANCED MARKERS
             styles: [{ elementType: "geometry", stylers: [{ color: "#242f3e" }] }]
         });
         
@@ -167,7 +170,6 @@
 
     // ================= 3. CITIZEN REPORTS LOGIC =================
     async function fetchCitizenReports() {
-        // 1. Fetch all recent reports
         const { data: reports, error } = await supabaseClient
             .from('citizen_reports')
             .select('*')
@@ -176,7 +178,6 @@
             
         if (error) console.error("Error fetching reports:", error);
 
-        // --- THE FIX: Fetch Active Alerts directly here to guarantee we have them for the math ---
         const { data: activeAlerts } = await supabaseClient.from('alerts').select('*').eq('status', 'Active');
         const currentAlerts = activeAlerts || [];
 
@@ -188,7 +189,6 @@
             return;
         }
 
-        // 2. Process priority matching with guaranteed alert data
         const processedReports = reports.map(report => {
             let isCritical = false;
             let matchedAlert = null;
@@ -203,24 +203,19 @@
             return { ...report, isCritical, matchedAlert };
         });
 
-        // 3. ADVANCED SORTING (Assigned at the bottom, Critical at the top)
         processedReports.sort((a, b) => {
             const isAssignedA = a.status === 'Assigned' ? 1 : 0;
             const isAssignedB = b.status === 'Assigned' ? 1 : 0;
             if (isAssignedA !== isAssignedB) return isAssignedA - isAssignedB;
-
             if (a.isCritical !== b.isCritical) return a.isCritical ? -1 : 1;
-
             return new Date(b.created_at) - new Date(a.created_at);
         });
 
-        // 4. Render the UI
         processedReports.forEach(r => {
             let badgeHtml = '';
             let borderClass = '';
             let cardStyle = '';
 
-            // ASSIGNED vs OPEN UI STYLING
             if (r.status === 'Assigned') {
                 badgeHtml = `<span class="badge bg-success float-end"><i class="bi bi-check-circle-fill"></i> Assigned: ${r.assigned_to || 'Rescue Team'}</span>`;
                 borderClass = 'border-start border-5 border-success';
@@ -232,7 +227,6 @@
                 borderClass = r.isCritical ? 'report-card-critical' : 'report-card-normal';
             }
 
-            // Check for Audio File
             let audioHtml = '';
             if (r.audio_url) {
                 audioHtml = `
@@ -245,7 +239,6 @@
                     </div>`;
             }
 
-            // Build Card HTML
             const html = `
                 <div class="card mb-3 shadow-sm ${borderClass}" style="${cardStyle}">
                     <div class="card-body p-3">
@@ -290,28 +283,19 @@
         if (!map) return;
         
         const targetPos = { lat: parseFloat(lat), lng: parseFloat(lng) };
-        const targetZoom = 13; // Perfect district-level view
+        const targetZoom = 13; 
         
-        // 1. Zoom out first to get a wider view
         map.setZoom(7); 
-
-        // 2. Wait 300ms, then pan smoothly to the new location
         setTimeout(() => {
             map.panTo(targetPos);
-            
-            // 3. Wait for the pan to finish (800ms), then trigger the smooth zoom in
             setTimeout(() => {
                 smoothZoomIn(map, targetZoom, map.getZoom());
             }, 800);
-            
         }, 300);
     }
 
-    // Helper function: Steps the zoom level 1 by 1 for a cinematic "Fly-In" effect
     function smoothZoomIn(map, targetZoom, currentZoom) {
         if (currentZoom >= targetZoom) return;
-        
-        // Wait 150ms between each zoom step to make it look smooth
         setTimeout(() => {
             map.setZoom(currentZoom + 1);
             smoothZoomIn(map, targetZoom, currentZoom + 1);
@@ -377,7 +361,6 @@
 
     // ================= 5. ACTIONS =================
     async function broadcast(id) {
-        // Automatically activate the tab so the user sees it change
         const triggerEl = document.querySelector('#reports-tab');
         if(triggerEl) bootstrap.Tab.getInstance(triggerEl)?.show();
 
@@ -401,21 +384,26 @@
         bootstrap.Tab.getInstance(triggerEl).show();
     }
 
+    // ✅ FIXED: Using the new AdvancedMarkerElement
     function addReportMarker(data) {
         if(!map) return;
         
-        // Custom simple icons based on category
+        // Define exact Google Maps Icons URLs
         let iconUrl = "http://maps.google.com/mapfiles/ms/icons/red-dot.png"; 
         if(data.category === 'Flood') iconUrl = "http://maps.google.com/mapfiles/ms/icons/blue-dot.png";
         if(data.category === 'Medical') iconUrl = "http://maps.google.com/mapfiles/ms/icons/purple-dot.png";
         if(data.category === 'Food') iconUrl = "http://maps.google.com/mapfiles/ms/icons/yellow-dot.png";
         
-        const marker = new google.maps.Marker({
+        // Create an HTML image element for the new Advanced Marker
+        const imgIcon = document.createElement("img");
+        imgIcon.src = iconUrl;
+        
+        // Create the Advanced Marker
+        const marker = new google.maps.marker.AdvancedMarkerElement({
             position: { lat: data.latitude, lng: data.longitude },
             map: map,
-            animation: google.maps.Animation.DROP,
             title: data.category,
-            icon: iconUrl
+            content: imgIcon // Tells Google to use our custom image
         });
         
         const info = new google.maps.InfoWindow({ 
@@ -426,7 +414,7 @@
     }
 </script>
 
-<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBNX00snr3BdhknJFTBX9l3ekhrhJzg8PA&callback=initMap&loading=async" async defer></script>
+<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBNX00snr3BdhknJFTBX9l3ekhrhJzg8PA&callback=initMap&libraries=marker&loading=async" async defer></script>
 
 </body>
 </html>
