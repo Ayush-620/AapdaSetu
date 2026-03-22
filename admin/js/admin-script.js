@@ -10,7 +10,7 @@ let activeAlertsCache = [];
 // Google Maps Initialization
 window.initMap = function() {
     console.log("Map Initializing...");
-    const center = { lat: 20.2961, lng: 85.8245 }; // Initial view still defaults to Odisha coastline
+    const center = { lat: 20.2961, lng: 85.8245 };
     
     map = new google.maps.Map(document.getElementById("googleMap"), {
         zoom: 7, 
@@ -70,13 +70,10 @@ async function fetchCitizenReports() {
         let matchedAlert = null;
 
         currentAlerts.forEach(alert => {
-            // ✅ ONLY calculate if both report and alert have valid coordinates
-            if (alert.latitude && alert.longitude && report.latitude && report.longitude) {
-                const d = getDistanceKm(report.latitude, report.longitude, alert.latitude, alert.longitude);
-                if (d <= (alert.radius_km || 50)) {
-                    isCritical = true;
-                    matchedAlert = alert.title;
-                }
+            const d = getDistanceKm(report.latitude, report.longitude, alert.latitude || 20.94, alert.longitude || 86.45);
+            if (d <= (alert.radius_km || 50)) {
+                isCritical = true;
+                matchedAlert = alert.title;
             }
         });
         return { ...report, isCritical, matchedAlert };
@@ -210,8 +207,7 @@ function addReportMarker(data) {
 
 // Alert & Broadcast Management
 async function fetchActiveBroadcasts() {
-    const { data, error } = await supabaseClient.from('alerts').select('*').eq('status', 'Active');
-    if (error) console.error("Error fetching broadcasts:", error);
+    const { data } = await supabaseClient.from('alerts').select('*').eq('status', 'Active');
     
     activeAlertsCache = data || [];
     const count = data ? data.length : 0;
@@ -226,27 +222,18 @@ async function fetchActiveBroadcasts() {
     }
 
     data.forEach(alert => {
-        // ✅ DYNAMIC: Parse DB values to floats
-        const lat = parseFloat(alert.latitude);
-        const lng = parseFloat(alert.longitude);
-        const radius = parseFloat(alert.radius_km) || 50;
-
-        // ✅ ONLY draw if we have real coordinates
-        if (map && !isNaN(lat) && !isNaN(lng)) {
+        if (map) {
             new google.maps.Circle({
                 strokeColor: "#FF0000", strokeOpacity: 0.8, strokeWeight: 2,
                 fillColor: "#FF0000", fillOpacity: 0.35, map,
-                center: { lat: lat, lng: lng },
-                radius: radius * 1000, 
+                center: { lat: alert.latitude || 20.94, lng: alert.longitude || 86.45 },
+                radius: (alert.radius_km || 50) * 1000,
             });
         }
 
         container.innerHTML += `
             <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-2">
-                <div>
-                    <strong class="text-danger">● LIVE:</strong> ${alert.title}
-                    <div class="small text-muted">Radius: ${radius}km</div>
-                </div>
+                <div><strong class="text-danger">● LIVE:</strong> ${alert.title}</div>
                 <button class="btn btn-outline-success btn-sm" onclick="resolveAlert(${alert.id})">✅ Resolve</button>
             </div>`;
     });
@@ -263,30 +250,14 @@ function createPendingCard(data) {
     if (document.getElementById(`alert-${data.id}`)) return;
     document.getElementById('ai-empty-state').style.display = 'none';
     
-    // ✅ DYNAMIC: Pull exact stats from DB row
-    const lat = data.latitude ? data.latitude.toFixed(4) : 'Unknown';
-    const lng = data.longitude ? data.longitude.toFixed(4) : 'Unknown';
-    const radius = data.radius_km || 50;
-    const severity = data.severity || 'Unspecified';
-
     const html = `
         <div class="card mb-3 border-warning shadow-sm" id="alert-${data.id}">
             <div class="card-body">
-                <div class="d-flex justify-content-between align-items-center">
-                    <h6 class="fw-bold text-danger mb-0">⚠️ ${data.title}</h6>
-                    <span class="badge bg-danger">${severity}</span>
-                </div>
-                
+                <h6 class="fw-bold text-danger">⚠️ ${data.title}</h6>
                 <div class="bg-light p-2 rounded mt-2 mb-2 border-start border-3 border-warning">
                     <small class="text-secondary fw-bold"><i class="bi bi-robot"></i> AI ANALYSIS:</small><br>
                     <span class="small">${data.summary}</span>
                 </div>
-                
-                <div class="small text-muted mb-3 bg-white p-2 border rounded">
-                    <strong><i class="bi bi-geo-alt"></i> GPS:</strong> ${lat}, ${lng} <br>
-                    <strong><i class="bi bi-bullseye"></i> Impact Radius:</strong> ${radius} km
-                </div>
-
                 <button class="btn btn-danger btn-sm fw-bold w-100" onclick="broadcast(${data.id})">VERIFY & BROADCAST 📡</button>
             </div>
         </div>`;
@@ -299,8 +270,7 @@ async function broadcast(id) {
     const triggerEl = document.querySelector('#reports-tab');
     if (triggerEl) bootstrap.Tab.getInstance(triggerEl)?.show();
 
-    // ✅ FIXED: Only update status, keep original coordinates
-    await supabaseClient.from('alerts').update({ status: 'Active' }).eq('id', id);
+    await supabaseClient.from('alerts').update({ status: 'Active', latitude: 20.94, longitude: 86.45, radius_km: 50 }).eq('id', id);
     document.getElementById(`alert-${id}`).remove();
 }
 
@@ -311,6 +281,11 @@ async function resolveAlert(id) {
     }
 }
 
+async function simulateScraperInput() {
+    await supabaseClient.from('alerts').insert({
+        title: "Cyclone Dana (AI Detected)", severity: "Critical",
+        summary: "Satellite imagery confirms deep depression. Expected landfall within 24 hours.", status: "Pending"
+    });
     
     const triggerEl = document.querySelector('#ai-tab');
     bootstrap.Tab.getInstance(triggerEl).show();
