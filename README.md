@@ -1,3 +1,5 @@
+Admin Login Credentials:- User ID:- admin@ndma.gov.in Password:- admin123
+
 # AapdaSetu (Disaster Response System)
 Theme: AI for Societal Good | Status: MVP Complete
 
